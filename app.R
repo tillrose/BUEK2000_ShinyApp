@@ -16,9 +16,9 @@ complete_code <- read_rds("data/Bodenübersichtskarte_1_200000_code")
 # App template from the shinyuieditor
 ui <- grid_page(
   layout = c(
-    "header    header   ",
-    "sidebar   dists    ",
-    "linePlots linePlots"
+    "header  header header",
+    "sidebar dists  area3 ",
+    ".       .      .     "
   ),
   row_sizes = c(
     "70px",
@@ -27,6 +27,7 @@ ui <- grid_page(
   ),
   col_sizes = c(
     "250px",
+    "1fr",
     "1fr"
   ),
   gap_size = "1rem",
@@ -38,12 +39,12 @@ ui <- grid_page(
     numericInput(
       inputId = "NumericBreitengrad",
       label = "Breitengrad",
-      value = 54.315767
+      value = 54.3158
     ),
     numericInput(
       inputId = "NumericLängengrad",
       label = "Längengrad",
-      value = 9.987846
+      value = 9.9878
     )
   ),
   grid_card_text(
@@ -53,22 +54,31 @@ ui <- grid_page(
     is_title = FALSE
   ),
   grid_card_plot(area = "dists"),
-  grid_card_plot(area = "linePlots")
+  grid_card(
+    area = "area3",
+    tableOutput(
+      outputId = "table"
+    )
+  )
 )
 
 # Define server logic
 server <- function(input, output) {
-  output$linePlots <- renderPlot({
+  
+  textures <- reactive(getSoilTexture(geoLaenge = input$NumericLängengrad, geoBreite = input$NumericBreitengrad, BUEK2000_shape = Soil_Germany, BUEK2000_code = complete_code))
+  
+  output$table <- renderTable({
     
+    textures() %>% 
+      dplyr::select("Obere Grenze" = OTIEF, "Untere Grenze" = UTIEF, "Bodenart" = BOART)
     
-    
-  })
+    })
 
   output$dists <- renderPlot({
     
-    textures <- getSoilTexture(geoLaenge = input$NumericLängengrad, geoBreite = input$NumericBreitengrad, BUEK2000_shape = Soil_Germany, BUEK2000_code = complete_code)
+    # textures <- getSoilTexture(geoLaenge = input$NumericLängengrad, geoBreite = input$NumericBreitengrad, BUEK2000_shape = Soil_Germany, BUEK2000_code = complete_code)
     
-    textures <- textures %>% 
+    textures <- textures() %>% 
       mutate(BOART = as.factor(BOART),
              BOART = fct_expand(BOART, "Ss", "Su2", "Sl2", "Sl3", "St2", "Su3", "Su4", "Slu", "Sl4", "St3", "Ls2", "Ls3", "Ls4", "Lt2", "Lts", "Ts4", "Ts3", "Uu", "Us", "Ut2", "Ut3", "Uls", "Ut4", "Lu", "Lt3", "Tu3", "Tu4", "Ts2", "Tl", "Tu2", "Tt"),
              BOART = fct_relevel(BOART, "Ss", "Su2", "Sl2", "Sl3", "St2", "Su3", "Su4", "Slu", "Sl4", "St3", "Ls2", "Ls3", "Ls4", "Lt2", "Lts", "Ts4", "Ts3", "Uu", "Us", "Ut2", "Ut3", "Uls", "Ut4", "Lu", "Lt3", "Tu3", "Tu4", "Ts2", "Tl", "Tu2", "Tt"))
