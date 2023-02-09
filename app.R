@@ -5,6 +5,8 @@ library(gridlayout)
 library(ggplot2)
 library(readr)
 library(sf)
+library(shadowtext)
+source("library.R")
 
 Soil_Germany <- read_rds("data/Bodenübersichtskarte_1_200000_only_agriculture")
 complete_code <- read_rds("data/Bodenübersichtskarte_1_200000_code")
@@ -34,12 +36,12 @@ ui <- grid_page(
     title = "Koordinaten",
     item_gap = "12px",
     numericInput(
-      inputId = "myNumericInput",
+      inputId = "NumericBreitengrad",
       label = "Breitengrad",
       value = 54.315767
     ),
     numericInput(
-      inputId = "myNumericInput",
+      inputId = "NumericLängengrad",
       label = "Längengrad",
       value = 9.987846
     )
@@ -57,29 +59,31 @@ ui <- grid_page(
 # Define server logic
 server <- function(input, output) {
   output$linePlots <- renderPlot({
-    obs_to_include <- as.integer(ChickWeight$Chick) <= input$numChicks
-    chicks <- ChickWeight[obs_to_include,]
-
-    ggplot(
-      chicks,
-      aes(
-        x = Time,
-        y = weight,
-        group = Chick
-      )
-    ) +
-      geom_line(alpha = 0.5) +
-      ggtitle("Chick weights over time")
+    
+    
+    
   })
 
   output$dists <- renderPlot({
-    ggplot(
-      ChickWeight,
-      aes(x = weight)
-    ) +
-      facet_wrap(~Diet) +
-      geom_density(fill = "#fa551b", color = "#ee6331") +
-      ggtitle("Distribution of weights by diet")
+    
+    textures <- getSoilTexture(geoLaenge = input$NumericLängengrad, geoBreite = input$NumericBreitengrad, BUEK2000_shape = Soil_Germany, BUEK2000_code = complete_code)
+    
+    textures <- textures %>% 
+      mutate(BOART = as.factor(BOART),
+             BOART = fct_expand(BOART, "Ss", "Su2", "Sl2", "Sl3", "St2", "Su3", "Su4", "Slu", "Sl4", "St3", "Ls2", "Ls3", "Ls4", "Lt2", "Lts", "Ts4", "Ts3", "Uu", "Us", "Ut2", "Ut3", "Uls", "Ut4", "Lu", "Lt3", "Tu3", "Tu4", "Ts2", "Tl", "Tu2", "Tt"),
+             BOART = fct_relevel(BOART, "Ss", "Su2", "Sl2", "Sl3", "St2", "Su3", "Su4", "Slu", "Sl4", "St3", "Ls2", "Ls3", "Ls4", "Lt2", "Lts", "Ts4", "Ts3", "Uu", "Us", "Ut2", "Ut3", "Uls", "Ut4", "Lu", "Lt3", "Tu3", "Tu4", "Ts2", "Tl", "Tu2", "Tt"))
+    
+    ggplot(textures) + aes() +
+      theme_bw(base_size = 18) +
+      geom_rect(aes(xmin = 1 -0.35, xmax = 1 + 0.35, ymin = UTIEF, ymax = OTIEF, group = HOR_NR, fill = BOART), colour = "white") +
+      geom_shadowtext(aes(x = 1, y = UTIEF + (OTIEF - UTIEF)/2, label = BOART), colour = "white", bg.colour = "black", size = 5.5) +
+      scale_y_reverse(expand = expansion(add = c(0, 0))) +
+      scale_x_continuous(breaks = NULL, expand = expansion(add = c(0, 0))) +
+      scale_fill_viridis_d(direction = -1, option = "rocket", end = 0.9) +
+      labs(y = "Tiefe", fill = "Bodenart", x = "") +
+      guides(fill = "none") +
+      NULL
+    
   })
 }
 
