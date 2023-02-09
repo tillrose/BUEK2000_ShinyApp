@@ -84,7 +84,8 @@ server <- function(input, output) {
     textures() %>% 
       dplyr::select("Obere Grenze" = OTIEF, "Untere Grenze" = UTIEF, "Bodenart" = BOART)
     
-    })
+    }) %>%
+    bindCache(input$NumericLängengrad, input$NumericBreitengrad)
 
   output$dists <- renderPlot({
     
@@ -104,7 +105,8 @@ server <- function(input, output) {
       guides(fill = "none") +
       NULL
     
-  })
+  }) %>%
+    bindCache(input$NumericLängengrad, input$NumericBreitengrad)
   
   
   output$spatial <- renderPlot({
@@ -114,7 +116,7 @@ server <- function(input, output) {
       st_set_crs(value = "+proj=longlat +datum=WGS84") %>% 
       st_transform(crs = st_crs(Soil_Germany))
     
-    boundary_box <- data.frame("geoLaenge" = c(input$NumericLängengrad - 0.15, input$NumericLängengrad - 0.15, input$NumericLängengrad + 0.15, input$NumericLängengrad + 0.15), "geoBreite" = c(input$NumericBreitengrad - 0.02, input$NumericBreitengrad + 0.02, input$NumericBreitengrad - 0.02, input$NumericBreitengrad + 0.02)) %>% 
+    boundary_box <- data.frame("geoLaenge" = c(input$NumericLängengrad - 0.125, input$NumericLängengrad - 0.125, input$NumericLängengrad + 0.125, input$NumericLängengrad + 0.125), "geoBreite" = c(input$NumericBreitengrad - 0.025, input$NumericBreitengrad + 0.025, input$NumericBreitengrad - 0.025, input$NumericBreitengrad + 0.025)) %>% 
       st_as_sf(coords = c("geoLaenge", "geoBreite")) %>% 
       st_set_crs(value = "+proj=longlat +datum=WGS84") %>% 
       st_transform(crs = st_crs(Soil_Germany)) %>% 
@@ -133,7 +135,8 @@ server <- function(input, output) {
       guides(fill = "none")
     
 
-  })
+  }) %>%
+    bindCache(input$NumericLängengrad, input$NumericBreitengrad)
   
   
 }
