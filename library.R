@@ -6,7 +6,7 @@ getSoilTexture <- function(geoLaenge, geoBreite, BUEK2000_shape, BUEK2000_code, 
   point_coordinates <- data.frame("geoLaenge" = geoLaenge, "geoBreite" = geoBreite) %>% 
     st_as_sf(coords = c("geoLaenge", "geoBreite")) %>% 
     st_set_crs(value = "+proj=longlat +datum=WGS84") %>% 
-    st_transform(crs = st_crs(Soil_Germany)) %>% 
+    st_transform(crs = st_crs(BUEK2000_shape)) %>% 
     mutate("geoLaenge" = geoLaenge, "geoBreite" = geoBreite)
   
   ## Extract point values
