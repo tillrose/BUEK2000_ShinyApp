@@ -14,22 +14,23 @@ library(raster)
 
 source("library.R")
 
-Soil_Germany <- read_rds("data/Bodenübersichtskarte_1_200000_only_agriculture")
-complete_code <- read_rds("data/Bodenübersichtskarte_1_200000_code")
-
+BUEK2000_Kartenblaetter <- read_rds("data/Bodenübersichtskarte_1_20000/Kartenblaetter_Box")
+BUEK2000_path <- "data/Bodenübersichtskarte_1_20000/Kartenblaetter_RDS/"
+BUEK2000_code <- read_rds("data/Bodenübersichtskarte_1_20000/Bodenübersichtskarte_1_200000_code")
+                          
 ###############
 ### Options ###
 
-shinyOptions(cache = cachem::cache_disk(dir = "./myapp-cache", max_age = Inf))
+# shinyOptions(cache = cachem::cache_disk(dir = "./myapp-cache", max_age = Inf))
              
 ###############
              
 # App template from the shinyuieditor
 ui <- grid_page(
   layout = c(
-    "header  header header",
-    "sidebar dists  area3 ",
-    ".       area4  area4 "
+    "header  header",
+    "sidebar area5",
+    "dists   area5"
   ),
   row_sizes = c(
     "70px",
@@ -38,7 +39,6 @@ ui <- grid_page(
   ),
   col_sizes = c(
     "250px",
-    "1fr",
     "1fr"
   ),
   gap_size = "1rem",
@@ -64,18 +64,36 @@ ui <- grid_page(
     alignment = "center",
     is_title = FALSE
   ),
-  grid_card_plot(area = "dists"),
   grid_card(
-    area = "area3",
+    area = "area5",
     item_gap = "12px",
-    tableOutput(outputId = "table")
-  ),
-  grid_card(
-    area = "area4",
-    plotOutput(
-      outputId = "spatial",
-      width = "100%",
-      height = "400px"
+    tabsetPanel(
+      tabPanel(
+        title = "Boden",
+        sidebarLayout(
+          sidebarPanel(
+            width = 2,
+            plotOutput(
+                  outputId = "plotBoden",
+                  width = "100%",
+                  height = "400px"
+                )
+          ),
+          mainPanel(
+            textOutput(
+              outputId = "text"
+            ),
+            tableOutput(
+              outputId = "table"
+            )
+          )
+      )),
+      tabPanel(title = "Karte",
+               plotOutput(
+                 outputId = "plotRäumlich",
+                 width = "100%",
+                 height = "400px"
+               ))
     )
   )
 )
@@ -83,17 +101,28 @@ ui <- grid_page(
 # Define server logic
 server <- function(input, output) {
   
-  textures <- reactive(getSoilTexture(geoLaenge = input$NumericLängengrad, geoBreite = input$NumericBreitengrad, BUEK2000_shape = Soil_Germany, BUEK2000_code = complete_code))
+  point_coordinates <- reactive(getPointCoordinates(geoLaenge = input$NumericLängengrad, geoBreite = input$NumericBreitengrad))
+  soil_map <- reactive(getSoilMap(point_coordinates = point_coordinates(), BUEK2000_Kartenblaetter = BUEK2000_Kartenblaetter, BUEK2000_path = BUEK2000_path))
+  soil_polygon <- reactive(getSoilPolygon(point_coordinates = point_coordinates(), Kartenblatt_spatial = soil_map(), BUEK2000_code = BUEK2000_code))
+  textures <- reactive(getSoilTexture(soil_polygon = soil_polygon()))
+  
+  output$text <- renderText({
+    
+    textures() %>%
+      pull(LE_TXT) %>%
+      unique() %>%
+      unlist()
+    
+  })
   
   output$table <- renderTable({
     
     textures() %>% 
       dplyr::select("Obere Grenze" = OTIEF, "Untere Grenze" = UTIEF, "Bodenart" = BOART)
     
-    }) %>%
-    bindCache(input$NumericLängengrad, input$NumericBreitengrad)
+    })
 
-  output$dists <- renderPlot({
+  output$plotBoden <- renderPlot({
     
     textures <- textures() %>% 
       mutate(BOART = as.factor(BOART),
@@ -111,39 +140,32 @@ server <- function(input, output) {
       guides(fill = "none") +
       NULL
     
-  }) %>%
-  bindCache(input$NumericLängengrad, input$NumericBreitengrad)
+  })
 
   
-  output$spatial <- renderPlot({
+  output$plotRäumlich <- renderPlot({
     
-    point_coordinates <- data.frame("geoLaenge" = input$NumericLängengrad, "geoBreite" = input$NumericBreitengrad) %>% 
-      st_as_sf(coords = c("geoLaenge", "geoBreite")) %>% 
-      st_set_crs(value = "+proj=longlat +datum=WGS84") %>% 
-      st_transform(crs = st_crs(Soil_Germany))
-    
-    boundary_box <- data.frame("geoLaenge" = c(input$NumericLängengrad - 0.125, input$NumericLängengrad - 0.125, input$NumericLängengrad + 0.125, input$NumericLängengrad + 0.125), "geoBreite" = c(input$NumericBreitengrad - 0.025, input$NumericBreitengrad + 0.025, input$NumericBreitengrad - 0.025, input$NumericBreitengrad + 0.025)) %>% 
-      st_as_sf(coords = c("geoLaenge", "geoBreite")) %>% 
-      st_set_crs(value = "+proj=longlat +datum=WGS84") %>% 
-      st_transform(crs = st_crs(Soil_Germany)) %>% 
+    boundary_box <- data.frame("geoLaenge" = c(input$NumericLängengrad - 0.125, input$NumericLängengrad - 0.125, input$NumericLängengrad + 0.125, input$NumericLängengrad + 0.125), "geoBreite" = c(input$NumericBreitengrad - 0.025, input$NumericBreitengrad + 0.025, input$NumericBreitengrad - 0.025, input$NumericBreitengrad + 0.025)) %>%
+      st_as_sf(coords = c("geoLaenge", "geoBreite")) %>%
+      st_set_crs(value = "+proj=longlat +datum=WGS84") %>%
+      st_transform(crs = st_crs("EPSG:25832")) %>%
       st_bbox()
-    
-    Soil_Reduced <- Soil_Germany %>% 
+
+    Soil_Reduced <- soil_map() %>%
       st_crop(boundary_box)
-    
+
     ggplot(Soil_Reduced) +
       theme_map() +
-      annotation_map_tile(zoom = 13) +
-      geom_sf(aes(fill = Symbol), colour = "black", alpha = 0.25, fill = "deepskyblue") +
-      geom_sf(data = point_coordinates, colour = "white", fill = "red", shape = 21, size = 5) +
+      theme(plot.background = element_rect(colour = "grey")) +
+      annotation_map_tile(zoom = 12) +
+      geom_sf(colour = "red", size = 1, fill = "brown", alpha = 0.15) +
+      geom_sf(data = point_coordinates(), colour = "white", fill = "red", shape = 21, size = 5) +
       scale_fill_viridis_d(option = "turbo") +
       coord_sf() +
       guides(fill = "none")
-    
 
-  }) %>%
-    bindCache(input$NumericLängengrad, input$NumericBreitengrad)
 
+  })
   
 }
 
