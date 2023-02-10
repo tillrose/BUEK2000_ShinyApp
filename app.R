@@ -10,6 +10,7 @@ library(sf)
 library(shadowtext)
 library(ggspatial)
 library(ggthemes)
+library(raster)
 
 source("library.R")
 
@@ -17,7 +18,12 @@ Soil_Germany <- read_rds("data/Bodenübersichtskarte_1_200000_only_agriculture")
 complete_code <- read_rds("data/Bodenübersichtskarte_1_200000_code")
 
 ###############
+### Options ###
 
+shinyOptions(cache = cachem::cache_disk(dir = "./myapp-cache", max_age = Inf))
+             
+###############
+             
 # App template from the shinyuieditor
 ui <- grid_page(
   layout = c(
@@ -39,7 +45,7 @@ ui <- grid_page(
   grid_card(
     area = "sidebar",
     item_alignment = "top",
-    title = "Koordinaten",
+    title = "Koordinaten (WGS84)",
     item_gap = "12px",
     numericInput(
       inputId = "NumericBreitengrad",
@@ -106,8 +112,8 @@ server <- function(input, output) {
       NULL
     
   }) %>%
-    bindCache(input$NumericLängengrad, input$NumericBreitengrad)
-  
+  bindCache(input$NumericLängengrad, input$NumericBreitengrad)
+
   
   output$spatial <- renderPlot({
     
@@ -128,7 +134,7 @@ server <- function(input, output) {
     ggplot(Soil_Reduced) +
       theme_map() +
       annotation_map_tile(zoom = 13) +
-      geom_sf(aes(fill = Symbol), colour = "black", alpha = 0.25) +
+      geom_sf(aes(fill = Symbol), colour = "black", alpha = 0.25, fill = "deepskyblue") +
       geom_sf(data = point_coordinates, colour = "white", fill = "red", shape = 21, size = 5) +
       scale_fill_viridis_d(option = "turbo") +
       coord_sf() +
@@ -137,7 +143,7 @@ server <- function(input, output) {
 
   }) %>%
     bindCache(input$NumericLängengrad, input$NumericBreitengrad)
-  
+
   
 }
 
